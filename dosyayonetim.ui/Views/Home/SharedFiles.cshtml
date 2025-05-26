@@ -1,0 +1,136 @@
+@{
+    ViewData["Title"] = "Paylaşımlarım";
+}
+
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="fas fa-share-alt me-2"></i>Paylaşımlarım
+                    </h5>
+                    <button class="btn btn-light btn-sm" onclick="refreshShareList()">
+                        <i class="fas fa-sync-alt"></i>
+                    </button>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                   
+                                    <th>Paylaşım Kodu</th>
+                                    <th>Oluşturulma Tarihi</th>
+                                    <th>Bitiş Tarihi</th>
+                                    <th>İndirme Sayısı</th>
+                                    <th>Durum</th>
+                                    <th>İşlemler</th>
+                                </tr>
+                            </thead>
+                            <tbody id="shareList">
+                                <!-- Paylaşımlar buraya yüklenecek -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        $(document).ready(function() {
+            loadShares();
+        });
+
+        function loadShares() {
+            $.ajax({
+                url: `${API_CONFIG.BASE_URL}/FileShare/links`,
+                type: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                },
+                success: function(shares) {
+                    const shareList = $('#shareList');
+                    shareList.empty();
+                    
+                    shares.forEach(share => {
+                        const shareUrl = `${window.location.origin}/shared/${share.shareCode}`;
+                        const row = `
+                            <tr>
+                               
+                                <td>
+                                    <div class="input-group">
+                                        <input type="text" class="form-control form-control-sm" value="${shareUrl}" readonly>
+                                        <button class="btn btn-sm btn-outline-primary" onclick="copyShareLink('${shareUrl}')">
+                                            <i class="fas fa-copy"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                                <td>${new Date(share.createdDate).toLocaleString('tr-TR')}</td>
+                                <td>${share.expiryDate ? new Date(share.expiryDate).toLocaleString('tr-TR') : 'Süresiz'}</td>
+                                <td>${share.downloadCount}</td>
+                                <td>
+                                    <span class="badge ${share.isActive ? 'bg-success' : 'bg-danger'}">
+                                        ${share.isActive ? 'Aktif' : 'Pasif'}
+                                    </span>
+                                </td>
+                                <td>
+                                    ${share.isActive ? `
+                                        <button class="btn btn-sm btn-danger" onclick="deactivateShare(${share.id})">
+                                            <i class="fas fa-ban"></i>
+                                        </button>
+                                    ` : ''}
+                                </td>
+                            </tr>
+                        `;
+                        shareList.append(row);
+                    });
+                },
+                error: function(xhr) {
+                    toastr.error('Paylaşımlar yüklenirken bir hata oluştu');
+                }
+            });
+        }
+
+        function copyShareLink(link) {
+            navigator.clipboard.writeText(link).then(() => {
+                toastr.success('Link panoya kopyalandı');
+            }).catch(() => {
+                // Fallback for older browsers
+                const tempInput = document.createElement('input');
+                tempInput.value = link;
+                document.body.appendChild(tempInput);
+                tempInput.select();
+                document.execCommand('copy');
+                document.body.removeChild(tempInput);
+                toastr.success('Link panoya kopyalandı');
+            });
+        }
+
+        function deactivateShare(shareId) {
+            if (confirm('Bu paylaşımı devre dışı bırakmak istediğinizden emin misiniz?')) {
+                $.ajax({
+                    url: `${API_CONFIG.BASE_URL}/FileShare/links/${shareId}`,
+                    type: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    },
+                    success: function() {
+                        toastr.success('Paylaşım başarıyla devre dışı bırakıldı');
+                        loadShares();
+                    },
+                    error: function(xhr) {
+                        toastr.error(xhr.responseJSON?.message || 'Paylaşım devre dışı bırakılırken bir hata oluştu');
+                    }
+                });
+            }
+        }
+
+        function refreshShareList() {
+            loadShares();
+        }
+    </script>
+} 

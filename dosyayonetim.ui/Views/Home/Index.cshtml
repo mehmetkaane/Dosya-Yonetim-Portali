@@ -1,0 +1,382 @@
+﻿@{
+    ViewData["Title"] = "Ana Sayfa";
+}
+
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-12 mb-4">
+            <div class="alert alert-info d-flex align-items-center" id="storageInfo" style="display:none;">
+                <i class="fas fa-hdd fa-2x me-3"></i>
+                <div>
+                    <span id="storageText">Yükleniyor...</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-md-12 mb-4">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">Dosya Yükle</h5>
+                </div>
+                <div class="card-body">
+                    <form id="uploadForm" enctype="multipart/form-data">
+                        <div class="mb-3">
+                            <label for="file" class="form-label">Dosya Seçin</label>
+                            <input type="file" class="form-control" id="file" name="file" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="description" class="form-label">Açıklama</label>
+                            <textarea class="form-control" id="description" name="description" rows="2"></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-upload me-2"></i>Yükle
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Dosyalarım</h5>
+                    <button class="btn btn-light btn-sm" onclick="refreshFileList()">
+                        <i class="fas fa-sync-alt"></i>
+                    </button>
+                </div>
+                <div class="card-body">
+                    <div class="row" id="fileList">
+                        <!-- Dosyalar buraya yüklenecek -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Paylaşım Modal -->
+<div class="modal fade" id="shareModal" tabindex="-1" aria-labelledby="shareModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="shareModalLabel">Dosya Paylaş</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="shareDays" class="form-label">Link Geçerlilik Süresi (Gün)</label>
+                    <input type="number" class="form-control" id="shareDays" min="1" max="365" placeholder="Süresiz için boş bırakın">
+                    <small class="text-muted">Boş bırakırsanız link süresiz olacaktır.</small>
+                </div>
+                <div id="shareLinkContainer" style="display: none;">
+                    <div class="input-group mb-3">
+                        <input type="text" class="form-control" id="shareLink" readonly>
+                        <button class="btn btn-outline-primary" type="button" onclick="copyShareLink()">
+                            <i class="fas fa-copy"></i>
+                        </button>
+                    </div>
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <span id="shareLinkInfo"></span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Kapat</button>
+                <button type="button" class="btn btn-primary" id="createShareLinkBtn">
+                    <i class="fas fa-share-alt me-2"></i>Paylaşım Linki Oluştur
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        $(document).ready(function() {
+            // Kullanıcı rolü kontrolü
+            const user = JSON.parse(localStorage.getItem('user'));
+            if (user && user.roles && user.roles.includes('Admin')) {
+                window.location.href = '/Admin/Index';
+                return;
+            }
+
+            loadFiles();
+            loadStorageInfo();
+            
+            $('#uploadForm').on('submit', function(e) {
+                e.preventDefault();
+                
+                const formData = new FormData();
+                const fileInput = $('#file')[0];
+                const description = $('#description').val();
+                
+                if (fileInput.files.length === 0) {
+                    toastr.error('Lütfen bir dosya seçin');
+                    return;
+                }
+                
+                formData.append('File', fileInput.files[0]);
+                formData.append('Description', description);
+                
+                $.ajax({
+                    url: `${API_CONFIG.BASE_URL}/File`,
+                    type: 'POST',
+                    data: formData,
+                    processData: false,
+                    contentType: false,
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    },
+                    success: function(response) {
+                        toastr.success('Dosya başarıyla yüklendi');
+                        $('#uploadForm')[0].reset();
+                        loadFiles();
+                        loadStorageInfo();
+                    },
+                    error: function(xhr) {
+                        toastr.error(xhr.responseJSON?.message || 'Dosya yüklenirken bir hata oluştu');
+                    }
+                });
+            });
+        });
+
+        function getFileIcon(fileName) {
+            const extension = fileName.split('.').pop().toLowerCase();
+            const iconMap = {
+                'pdf': 'fa-file-pdf',
+                'doc': 'fa-file-word',
+                'docx': 'fa-file-word',
+                'xls': 'fa-file-excel',
+                'xlsx': 'fa-file-excel',
+                'ppt': 'fa-file-powerpoint',
+                'pptx': 'fa-file-powerpoint',
+                'jpg': 'fa-file-image',
+                'jpeg': 'fa-file-image',
+                'png': 'fa-file-image',
+                'gif': 'fa-file-image',
+                'txt': 'fa-file-alt',
+                'zip': 'fa-file-archive',
+                'rar': 'fa-file-archive',
+                'mp3': 'fa-file-audio',
+                'mp4': 'fa-file-video'
+            };
+            return iconMap[extension] || 'fa-file';
+        }
+
+        function loadFiles() {
+            $.ajax({
+                url: `${API_CONFIG.BASE_URL}/File`,
+                type: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                },
+                success: function(files) {
+                    const fileList = $('#fileList');
+                    fileList.empty();
+                    
+                    files.forEach(file => {
+                        const fileIcon = getFileIcon(file.fileName);
+                        const row = `
+                            <div class="col-md-3 col-sm-6 mb-4">
+                                <div class="card h-100">
+                                    <div class="card-body text-center">
+                                        <i class="fas ${fileIcon} fa-3x mb-3 text-primary"></i>
+                                        <h6 class="card-title text-truncate" title="${file.fileName}">${file.fileName}</h6>
+                                        <p class="card-text small text-muted">
+                                            ${formatFileSize(file.fileSize)}<br>
+                                            ${new Date(file.uploadDate).toLocaleString('tr-TR')}
+                                        </p>
+                                        <div class="dropdown">
+                                            <button class="btn btn-link text-dark" type="button" id="dropdownMenu${file.id}" data-bs-toggle="dropdown" aria-expanded="false">
+                                                <i class="btn btn-primary">Islemler</i>
+                                            </button>
+                                            <ul class="dropdown-menu" aria-labelledby="dropdownMenu${file.id}">
+                                                <li><a class="dropdown-item" href="#" onclick="downloadFile(${file.id})">
+                                                    <i class="fas fa-download me-2"></i>İndir
+                                                </a></li>
+                                                <li><a class="dropdown-item" href="#" onclick="shareFile(${file.id})">
+                                                    <i class="fas fa-share-alt me-2"></i>Paylaş
+                                                </a></li>
+                                                <li><hr class="dropdown-divider"></li>
+                                                <li><a class="dropdown-item text-danger" href="#" onclick="deleteFile(${file.id})">
+                                                    <i class="fas fa-trash me-2"></i>Sil
+                                                </a></li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                        fileList.append(row);
+                    });
+                },
+                error: function(xhr) {
+                    toastr.error('Dosyalar yüklenirken bir hata oluştu');
+                }
+            });
+        }
+
+        function loadStorageInfo() {
+            $.ajax({
+                url: `${API_CONFIG.BASE_URL}/File/storage-info`,
+                type: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                },
+                success: function(info) {
+                    $('#storageText').html(`<strong>Toplam Dosya:</strong> ${info.fileCount} &nbsp; <strong>Kullanılan Alan:</strong> ${info.formattedSize}`);
+                    $('#storageInfo').show();
+                },
+                error: function(xhr) {
+                    $('#storageText').text('Depolama bilgisi alınamadı');
+                    $('#storageInfo').show();
+                }
+            });
+        }
+
+        function downloadFile(id) {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                toastr.error('Oturum süreniz dolmuş. Lütfen tekrar giriş yapın.');
+                return;
+            }
+
+            // Önce dosya bilgilerini al
+            $.ajax({
+                url: `${API_CONFIG.BASE_URL}/File/${id}`,
+                type: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                },
+                success: function(fileInfo) {
+                    // Dosyayı indir
+                    const downloadUrl = `${API_CONFIG.BASE_URL}/File/${id}/download`;
+                    const link = document.createElement('a');
+                    link.href = downloadUrl;
+                    link.setAttribute('download', fileInfo.fileName);
+                    
+                    // Authorization header'ı ekle
+                    const xhr = new XMLHttpRequest();
+                    xhr.open('GET', downloadUrl, true);
+                    xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+                    xhr.responseType = 'blob';
+                    
+                    xhr.onload = function() {
+                        if (xhr.status === 200) {
+                            const blob = xhr.response;
+                            const url = window.URL.createObjectURL(blob);
+                            link.href = url;
+                            document.body.appendChild(link);
+                            link.click();
+                            document.body.removeChild(link);
+                            window.URL.revokeObjectURL(url);
+                        } else {
+                            toastr.error('Dosya indirilirken bir hata oluştu');
+                        }
+                    };
+                    
+                    xhr.onerror = function() {
+                        toastr.error('Dosya indirilirken bir hata oluştu');
+                    };
+                    
+                    xhr.send();
+                },
+                error: function(xhr) {
+                    if (xhr.status === 401) {
+                        toastr.error('Oturum süreniz dolmuş. Lütfen tekrar giriş yapın.');
+                    } else {
+                        toastr.error('Dosya bilgileri alınırken bir hata oluştu');
+                    }
+                }
+            });
+        }
+
+        let currentFileId = null;
+        const shareModal = new bootstrap.Modal(document.getElementById('shareModal'));
+
+        function shareFile(id) {
+            currentFileId = id;
+            $('#shareDays').val('');
+            $('#shareLinkContainer').hide();
+            $('#shareLink').val('');
+            $('#shareLinkInfo').text('');
+            shareModal.show();
+        }
+
+        $('#createShareLinkBtn').click(function() {
+            const days = $('#shareDays').val();
+            const data = days ? { days: parseInt(days) } : {};
+
+            $.ajax({
+                url: `${API_CONFIG.BASE_URL}/FileShare/files/${currentFileId}/share`,
+                type: 'POST',
+                data: JSON.stringify(data),
+                contentType: 'application/json',
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                },
+                success: function(response) {
+                    const shareUrl = `${window.location.origin}/shared/${response.shareCode}`;
+                    $('#shareLink').val(shareUrl);
+                    $('#shareLinkContainer').show();
+                    
+                    let infoText = `Link oluşturuldu. `;
+                    if (response.expiryDate) {
+                        const expiryDate = new Date(response.expiryDate).toLocaleString('tr-TR');
+                        infoText += `Geçerlilik süresi: ${expiryDate}`;
+                    } else {
+                        infoText += 'Link süresizdir.';
+                    }
+                    $('#shareLinkInfo').text(infoText);
+                },
+                error: function(xhr) {
+                    toastr.error(xhr.responseJSON?.message || 'Paylaşım linki oluşturulurken bir hata oluştu');
+                }
+            });
+        });
+
+        function copyShareLink() {
+            const shareLink = document.getElementById('shareLink');
+            shareLink.select();
+            document.execCommand('copy');
+            toastr.success('Link panoya kopyalandı');
+        }
+
+        function deleteFile(id) {
+            if (confirm('Bu dosyayı silmek istediğinizden emin misiniz?')) {
+                $.ajax({
+                    url: `${API_CONFIG.BASE_URL}/File/${id}`,
+                    type: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    },
+                    success: function() {
+                        toastr.success('Dosya başarıyla silindi');
+                        loadFiles();
+                        loadStorageInfo();
+                    },
+                    error: function(xhr) {
+                        toastr.error(xhr.responseJSON?.message || 'Dosya silinirken bir hata oluştu');
+                    }
+                });
+            }
+        }
+
+        function refreshFileList() {
+            loadFiles();
+            loadStorageInfo();
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+    </script>
+}

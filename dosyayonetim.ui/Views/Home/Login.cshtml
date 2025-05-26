@@ -1,0 +1,89 @@
+@{
+    ViewData["Title"] = "Giriş Yap";
+}
+
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card shadow auth-card">
+                <div class="card-header bg-primary text-white">
+                    <h3 class="mb-0 text-center">Giriş Yap</h3>
+                </div>
+                <div class="card-body">
+                    <form id="loginForm">
+                        <div class="mb-3">
+                            <label for="username" class="form-label">Kullanıcı Adı</label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="fas fa-user"></i></span>
+                                <input type="text" class="form-control" id="username" name="username" required placeholder="Kullanıcı adınızı giriniz">
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="password" class="form-label">Şifre</label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="fas fa-lock"></i></span>
+                                <input type="password" class="form-control" id="password" name="password" required placeholder="Şifrenizi giriniz">
+                            </div>
+                        </div>
+                        <div class="alert alert-danger d-none" id="errorMessage"></div>
+                        <button type="submit" class="btn btn-primary w-100 btn-lg" style="background:linear-gradient(135deg, #4b6cb7 0%, #182848 100%) !important;">Giriş Yap</button>
+                    </form>
+                    <div class="mt-4 text-center">
+                        <p class="mb-0">Hesabınız yok mu? <a href="/Home/Register"  class="text-primary">Kayıt Ol</a></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="https://kit.fontawesome.com/your-font-awesome-kit.js"></script>
+    <script src="~/js/config.js"></script>
+    <script>
+        $(document).ready(function() {
+            // Token kontrolü
+            const token = localStorage.getItem('token');
+            if (token) {
+                window.location.href = '/Home/Index';
+                return;
+            }
+
+            $('#loginForm').on('submit', function(e) {
+                e.preventDefault();
+                
+                const userData = {
+                    username: $('#username').val(),
+                    password: $('#password').val()
+                };
+
+                $.ajax({
+                    url: `${API_CONFIG.BASE_URL}/Auth/Login`,
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify(userData),
+                    success: function(response) {
+                        if (response.isSuccess) {
+                            localStorage.setItem('token', response.token);
+                            localStorage.setItem('user', JSON.stringify(response.user));
+                            toastr.success('Giriş başarılı! Yönlendiriliyorsunuz...');
+                            setTimeout(function() {
+                                window.location.href = '/Home/Index';
+                            }, 1000);
+                        } else {
+                            $('#errorMessage').removeClass('d-none').text(response.message);
+                        }
+                    },
+                    error: function(xhr) {
+                        const response = xhr.responseJSON;
+                        if (response && response.message) {
+                            $('#errorMessage').removeClass('d-none').text(response.message);
+                        } else {
+                            $('#errorMessage').removeClass('d-none').text('Giriş başarısız oldu. Lütfen tekrar deneyiniz.');
+                        }
+                    }
+                });
+            });
+        });
+    </script>
+} 

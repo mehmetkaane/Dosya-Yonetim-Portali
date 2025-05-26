@@ -1,0 +1,165 @@
+﻿@{
+    ViewData["Title"] = "Admin Dashboard";
+    Layout = "~/Views/Shared/_adminLayout.cshtml";
+}
+
+<div class="container-fluid mt-4">
+
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <h5 class="card-title">Toplam İndirme</h5>
+                    <h2 class="card-text" id="totalDownloads">-</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <h5 class="card-title">Benzersiz Kullanıcı</h5>
+                    <h2 class="card-text" id="uniqueUsers">-</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <h5 class="card-title">Benzersiz Dosya</h5>
+                    <h2 class="card-text" id="uniqueFiles">-</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-white">
+                <div class="card-body">
+                    <h5 class="card-title">Toplam Dosya Türü</h5>
+                    <h2 class="card-text" id="totalFileTypes">-</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+
+        <div class="col-md-6 mb-4">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">Dosya Türü Dağılımı</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="fileTypeChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+
+        <div class="col-md-6 mb-4">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">Kullanıcı İndirme Dağılımı</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="userDownloadChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+</div>
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        let fileTypeChart = null;
+        let userDownloadChart = null;
+
+        $(document).ready(function() {
+            loadStatistics();
+        });
+
+        function loadStatistics() {
+            $.ajax({
+                url: `${API_CONFIG.BASE_URL}/DownloadHistory/statistics`,
+                type: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                },
+                success: function(data) {
+                    updateStatistics(data);
+                    updateCharts(data);
+                    updateRecentDownloads(data.recentDownloads);
+                },
+                error: function(xhr) {
+                    toastr.error('İstatistikler yüklenirken bir hata oluştu');
+                }
+            });
+        }
+
+        function updateStatistics(data) {
+            $('#totalDownloads').text(data.totalDownloads);
+            $('#uniqueUsers').text(data.uniqueUsers);
+            $('#uniqueFiles').text(data.uniqueFiles);
+            $('#totalFileTypes').text(Object.keys(data.downloadsByFileType).length);
+        }
+
+        function updateCharts(data) {
+
+            const fileTypeCtx = document.getElementById('fileTypeChart').getContext('2d');
+            if (fileTypeChart) fileTypeChart.destroy();
+            
+            fileTypeChart = new Chart(fileTypeCtx, {
+                type: 'pie',
+                data: {
+                    labels: Object.keys(data.downloadsByFileType),
+                    datasets: [{
+                        data: Object.values(data.downloadsByFileType),
+                        backgroundColor: [
+                            '#FF6384',
+                            '#36A2EB',
+                            '#FFCE56',
+                            '#4BC0C0',
+                            '#9966FF'
+                        ]
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'right'
+                        }
+                    }
+                }
+            });
+
+
+            const userDownloadCtx = document.getElementById('userDownloadChart').getContext('2d');
+            if (userDownloadChart) userDownloadChart.destroy();
+            
+            userDownloadChart = new Chart(userDownloadCtx, {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(data.downloadsByUser),
+                    datasets: [{
+                        label: 'İndirme Sayısı',
+                        data: Object.values(data.downloadsByUser),
+                        backgroundColor: '#36A2EB'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+
+       
+    </script>
+}
+

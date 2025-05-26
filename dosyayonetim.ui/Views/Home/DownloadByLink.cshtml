@@ -1,0 +1,81 @@
+@{
+    ViewData["Title"] = "Link ile İndir";
+}
+
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-link me-2"></i>Link ile Dosya İndir
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Paylaşılan dosya linkini aşağıdaki alana yapıştırın.
+                    </div>
+                    <form id="downloadForm">
+                        <div class="mb-3">
+                            <label for="shareLink" class="form-label">Paylaşım Linki</label>
+                            <div class="input-group">
+                                <input type="text" class="form-control" id="shareLink" 
+                                       placeholder="https://example.com/shared/abc123" required>
+                                <button class="btn btn-primary" type="submit">
+                                    <i class="fas fa-download me-2"></i>İndir
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        $(document).ready(function() {
+            $('#downloadForm').on('submit', function(e) {
+                e.preventDefault();
+                
+                const shareLink = $('#shareLink').val();
+                const shareCode = shareLink.split('/').pop();
+                
+                if (!shareCode) {
+                    toastr.error('Geçerli bir paylaşım linki giriniz');
+                    return;
+                }
+
+                // Önce dosyanın varlığını kontrol et
+                $.ajax({
+                    url: `${API_CONFIG.BASE_URL}/FileShare/check/${shareCode}`,
+                    type: 'GET',
+                    success: function(response) {
+                        if (response.exists) {
+                            // Dosya varsa indir
+                            const downloadUrl = `${API_CONFIG.BASE_URL}/FileShare/download/${shareCode}`;
+                            window.location.href = downloadUrl;
+                            toastr.success('Dosya Başarıyla İndirildi');
+                        } else {
+                            toastr.error(response.message || 'Dosya bulunamadı veya paylaşım süresi dolmuş');
+                        }
+                    },
+                    error: function(xhr) {
+                        const response = xhr.responseJSON;
+                        if (response && response.message) {
+                            toastr.error(response.message);
+                        } else if (xhr.status === 404) {
+                            toastr.error('Dosya bulunamadı veya paylaşım süresi dolmuş');
+                        } else if (xhr.status === 403) {
+                            toastr.error('Bu dosyaya erişim izniniz yok');
+                        } else {
+                            toastr.error('Dosya kontrolü sırasında bir hata oluştu');
+                        }
+                    }
+                });
+            });
+        });
+    </script>
+} 

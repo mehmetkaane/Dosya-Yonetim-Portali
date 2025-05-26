@@ -1,0 +1,195 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - Dosya Yönetim Sistemi</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/dosyayonetim.ui.styles.css" asp-append-version="true" />
+    <!-- Toastr CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.css" />
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
+    <style>
+        .navbar {
+            background: linear-gradient(135deg, #4b6cb7 0%, #182848 100%) !important;
+            padding: 1rem 0;
+        }
+        .navbar-brand, .nav-link {
+            color: white !important;
+            font-weight: 500;
+        }
+        .navbar-brand {
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+        .nav-link {
+            padding: 0.5rem 1rem !important;
+            transition: all 0.3s ease;
+        }
+        .nav-link:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+            border-radius: 5px;
+        }
+        .navbar-toggler {
+            border-color: rgba(255, 255, 255, 0.5);
+        }
+        .navbar-toggler-icon {
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba%28255, 255, 255, 0.75%29' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e");
+        }
+        .user-welcome {
+            background-color: rgba(255, 255, 255, 0.1);
+            padding: 0.5rem 1rem;
+            border-radius: 5px;
+            margin-right: 1rem;
+        }
+        .btn-logout {
+            background-color: rgba(255, 255, 255, 0.1);
+            border: none;
+            color: white !important;
+            padding: 0.5rem 1rem;
+            border-radius: 5px;
+            transition: all 0.3s ease;
+        }
+        .btn-logout:hover {
+            background-color: rgba(255, 255, 255, 0.2);
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <nav class="navbar navbar-expand-sm navbar-dark">
+            <div class="container">
+                <a class="navbar-brand">
+                    <i class="fas fa-cloud-upload-alt me-2"></i>Dosya Yönetim Sistemi
+                </a>
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target=".navbar-collapse" aria-controls="navbarSupportedContent"
+                        aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+                <div class="navbar-collapse collapse d-sm-inline-flex justify-content-between">
+                    <ul class="navbar-nav flex-grow-1" id="mainNav">
+                        <li class="nav-item">
+                            <a class="nav-link" asp-area="" asp-controller="Home" asp-action="Index">
+                                <i class="fas fa-home me-1"></i>Ana Sayfa
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" asp-area="" asp-controller="Home" asp-action="SharedFiles">
+                                <i class="fas fa-share-alt me-1"></i>Paylaşımlarım
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" asp-area="" asp-controller="Home" asp-action="DownloadByLink">
+                                <i class="fas fa-link me-1"></i>Link ile İndir
+                            </a>
+                        </li>
+                    </ul>
+                    <ul class="navbar-nav" id="authNav">
+                        <li class="nav-item">
+                            <a class="nav-link" asp-area="" asp-controller="Home" asp-action="Login">
+                                <i class="fas fa-sign-in-alt me-1"></i>Giriş Yap
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" asp-area="" asp-controller="Home" asp-action="Register">
+                                <i class="fas fa-user-plus me-1"></i>Kayıt Ol
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </nav>
+    </header>
+    <div class="container">
+        <main role="main" class="pb-3">
+            @RenderBody()
+        </main>
+    </div>
+
+    <footer class="border-top footer text-muted">
+        <div class="container">
+            &copy; 2024 - Dosya Yönetim Sistemi
+        </div>
+    </footer>
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="~/js/site.js" asp-append-version="true"></script>
+    <script src="~/js/config.js"></script>
+    <!-- Toastr JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.js"></script>
+    <script>
+        // Toastr ayarları
+        toastr.options = {
+            "closeButton": true,
+            "progressBar": true,
+            "positionClass": "toast-top-right",
+            "timeOut": "3000"
+        };
+
+        $(document).ready(function() {
+            // Check if user is logged in
+            const token = localStorage.getItem('token');
+            
+            if (token) {
+                // Hide auth nav and show main nav
+                $('#authNav').hide();
+                $('#mainNav').show();
+                
+                // Fetch current user information
+                $.ajax({
+                    url: `${API_CONFIG.BASE_URL}/Auth/current-user`,
+                    type: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    },
+                    success: function(response) {
+                        const user = response.user;
+                        const displayName = user.firstName && user.lastName 
+                            ? `${user.firstName} ${user.lastName}`
+                            : user.username;
+                            
+                        $('#authNav').html(`
+                            <li class="nav-item">
+                                <span class="nav-link user-welcome">
+                                    <i class="fas fa-user me-1"></i>Hoş geldiniz, ${displayName}
+                                </span>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link btn-logout" href="#" onclick="logout()">
+                                    <i class="fas fa-sign-out-alt me-1"></i>Çıkış Yap
+                                </a>
+                            </li>
+                        `).show();
+                    },
+                    error: function() {
+                        logout();
+                    }
+                });
+            } else {
+                // Show auth nav and hide main nav
+                $('#authNav').show();
+                $('#mainNav').hide();
+            }
+        });
+
+        function logout() {
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            window.location.href = '/';
+        }
+
+        // Global AJAX error handler
+        $(document).ajaxError(function(event, jqXHR, settings, error) {
+            if (jqXHR.status === 401) {
+                toastr.error('Oturum süreniz doldu. Lütfen tekrar giriş yapın.');
+                logout();
+            } else {
+                toastr.error('Bir hata oluştu. Lütfen tekrar deneyin.');
+            }
+        });
+    </script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

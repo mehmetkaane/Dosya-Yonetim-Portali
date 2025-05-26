@@ -1,0 +1,87 @@
+@{
+    ViewData["Title"] = "Kullanıcılar";
+    Layout = "~/Views/Shared/_adminLayout.cshtml";
+}
+
+<div class="container-fluid mt-4">
+    <div class="card shadow mb-4">
+        <div class="card-header py-3 d-flex justify-content-between align-items-center">
+            <h6 class="m-0 font-weight-bold text-primary">Kullanıcı Listesi</h6>
+            <button class="btn btn-primary btn-sm" onclick="loadUsers()">
+                <i class="fas fa-sync-alt"></i> Yenile
+            </button>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered" id="usersTable" width="100%" cellspacing="0">
+                    <thead>
+                        <tr>
+                            <th>Kullanıcı Adı</th>
+                            <th>Ad</th>
+                            <th>Soyad</th>
+                            <th>Email</th>
+                            <th>Roller</th>
+                  
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Veriler JavaScript ile doldurulacak -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        $(document).ready(function() {
+            loadUsers();
+        });
+
+        function loadUsers() {
+            $.ajax({
+                url: `${API_CONFIG.BASE_URL}/Auth/users`,
+                type: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                },
+                success: function(data) {
+                    updateUsersTable(data);
+                },
+                error: function(xhr) {
+                    toastr.error('Kullanıcılar yüklenirken bir hata oluştu');
+                }
+            });
+        }
+
+        function updateUsersTable(users) {
+            const tbody = $('#usersTable tbody');
+            tbody.empty();
+
+            users.forEach(user => {
+                const row = `
+                    <tr>
+                        <td>${user.username}</td>
+                        <td>${user.firstName || '-'}</td>
+                        <td>${user.lastName || '-'}</td>
+                        <td>${user.email}</td>
+                        <td>${user.roles.join(', ')}</td>
+                       
+                    </tr>
+                `;
+                tbody.append(row);
+            });
+        }
+
+        function editUser(userId) {
+            // TODO: Kullanıcı düzenleme modalını aç
+            toastr.info('Kullanıcı düzenleme özelliği yakında eklenecek');
+        }
+
+        function deleteUser(userId) {
+            // TODO: Kullanıcı silme onayı al
+            toastr.info('Kullanıcı silme özelliği yakında eklenecek');
+        }
+    </script>
+} 
